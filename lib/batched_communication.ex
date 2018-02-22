@@ -120,7 +120,10 @@ defmodule BatchedCommunication do
   Currently supported values are `:gzip` and `:raw` (no compression).
   Defaults to `:gzip`.
   """
-  defun change_compression(compression :: v[Compression.t]) :: :ok do
+  defun change_compression(compression :: Compression.t) :: :ok do
+    if not Compression.valid?(compression) do
+      raise ArgumentError, "invalid value for compression setting: #{inspect(compression)}"
+    end
     Sender.change_property_in_all_senders(:compression, compression)
   end
 end
