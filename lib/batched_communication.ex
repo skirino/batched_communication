@@ -28,11 +28,7 @@ defmodule BatchedCommunication do
   """
   defun call(dest :: dest, msg :: message, t :: timeout | {:clean_timeout, timeout} | {:dirty_timeout, timeout} \\ 5000) :: reply do
     ref = Process.monitor(dest)
-    try do
-      send(dest, {:"$gen_call", {self(), ref}, msg})
-    rescue
-      ArgumentError -> :ok # no process found for the name
-    end
+    send(dest, {:"$gen_call", {self(), ref}, msg})
     receive do
       {^ref, reply}                      -> Process.demonitor(ref, [:flush]); reply
       {:DOWN, ^ref, _, _, :noconnection} -> exit({{:nodedown, get_node(dest)}, {__MODULE__, :call, [dest, msg, t]}})
@@ -65,17 +61,24 @@ defmodule BatchedCommunication do
   Sends `message` to the destination process `dest` with a batching mechanism.
   """
   defun send(dest :: dest, message :: message) :: :ok do
-    case dest do
-      a when is_atom(a)       -> Kernel.send(a, message)
-      {a, n} when n == node() -> Kernel.send(a, message)
-      {a, n}                  -> Sender.enqueue(n, a, message)
-      pid when is_pid(pid)    ->
-        case node(pid) do
-          n when n == node() -> Kernel.send(pid, message)
-          n                  -> Sender.enqueue(n, pid, message)
-        end
+    {p, n} = node_pair(dest)
+    case n == node() do
+      true  -> send_local(p, message)
+      false -> Sender.enqueue(n, p, message)
     end
     :ok
+  end
+
+  defp node_pair(p) when is_pid(p) , do: {p, node(p)}
+  defp node_pair(a) when is_atom(a), do: {a, Node.self()}
+  defp node_pair({_a, _n} = pair)  , do: pair
+
+  defp send_local(p, message) do
+    try do
+      Kernel.send(p, message)
+    rescue
+      ArgumentError -> :ok # no process found for name (in this case `p` is an atom)
+    end
   end
 
   @type configurations :: %{

@@ -41,7 +41,7 @@ defmodule BatchedCommunicationTest do
     assert BC.cast(name_remote, :foo) == :ok
     assert_receive({^pid_remote, :cast, :foo}, 250)
 
-    # info
+    # send
     assert BC.send(pid_local, :foo) == :ok
     assert_receive({^pid_local, :info, :foo})
     assert BC.send(name_local, :foo) == :ok
@@ -68,11 +68,19 @@ defmodule BatchedCommunicationTest do
     assert catch_exit(GenServer.call(name_local, {:sleep, 500}, 200)) == {:timeout, {GenServer, :call, [name_local, {:sleep, 500}, 200]}}
     assert catch_exit(BC       .call(pid_local , {:sleep, 500}, 200)) == {:timeout, {BC       , :call, [pid_local , {:sleep, 500}, 200]}}
     assert catch_exit(BC       .call(name_local, {:sleep, 500}, 200)) == {:timeout, {BC       , :call, [name_local, {:sleep, 500}, 200]}}
+    Enum.each(1..4, fn _ ->
+      assert_receive({^pid_local, :call, {:sleep, 500}})
+      assert_receive({_ref, :ok}, 2000) # consume late replies
+    end)
 
     assert catch_exit(GenServer.call(pid_remote , {:sleep, 500}, 200)) == {:timeout, {GenServer, :call, [pid_remote , {:sleep, 500}, 200]}}
     assert catch_exit(GenServer.call(name_remote, {:sleep, 500}, 200)) == {:timeout, {GenServer, :call, [name_remote, {:sleep, 500}, 200]}}
     assert catch_exit(BC       .call(pid_remote , {:sleep, 500}, 200)) == {:timeout, {BC       , :call, [pid_remote , {:sleep, 500}, 200]}}
     assert catch_exit(BC       .call(name_remote, {:sleep, 500}, 200)) == {:timeout, {BC       , :call, [name_remote, {:sleep, 500}, 200]}}
+    Enum.each(1..4, fn _ ->
+      assert_receive({^pid_remote, :call, {:sleep, 500}})
+      assert_receive({_ref, :ok}, 2000) # consume late replies
+    end)
 
     # call to dead pid
     assert GenServer.stop(pid_local ) == :ok
@@ -95,6 +103,9 @@ defmodule BatchedCommunicationTest do
     assert catch_exit(GenServer.call(name_remote, {:sleep, 500}, 200)) == {{:nodedown, slave}, {GenServer, :call, [name_remote, {:sleep, 500}, 200]}}
     assert catch_exit(BC       .call(pid_remote , {:sleep, 500}, 200)) == {{:nodedown, slave}, {BC       , :call, [pid_remote , {:sleep, 500}, 200]}}
     assert catch_exit(BC       .call(name_remote, {:sleep, 500}, 200)) == {{:nodedown, slave}, {BC       , :call, [name_remote, {:sleep, 500}, 200]}}
+
+    # check that there's no extra message
+    refute_receive(_)
   end
 
   defp assert_props_in_all_senders(max_messages, max_wait_time, compression) do
