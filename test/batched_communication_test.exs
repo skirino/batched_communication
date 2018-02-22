@@ -52,6 +52,13 @@ defmodule BatchedCommunicationTest do
     assert BC.send(name_remote, :foo) == :ok
     assert_receive({^pid_remote, :info, :foo}, 250)
 
+    # broadcast
+    assert BC.broadcast([pid_local, name_local, pid_remote, name_remote], :foo) == :ok
+    assert_receive({^pid_local, :info, :foo})
+    assert_receive({^pid_local, :info, :foo})
+    assert_receive({^pid_remote, :info, :foo}, 250)
+    assert_receive({^pid_remote, :info, :foo}, 250)
+
     # call
     assert BC.call(pid_local, {:echo, :foo}) == :foo
     assert_receive({^pid_local, :call, {:echo, :foo}})

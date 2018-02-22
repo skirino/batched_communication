@@ -83,8 +83,8 @@ defmodule BatchedCommunication.Sender do
     :"batched_sender_#{i}"
   end
 
-  def enqueue(n, pid_or_atom, msg) do
-    send(name(hash_node(n)), {n, pid_or_atom, msg})
+  def enqueue(n, dest, msg) do
+    send(name(hash_node(n)), {n, dest, msg})
   end
 
   def get_configurations() do

@@ -14,7 +14,13 @@ defmodule BatchedCommunication.Receiver do
 
   @impl true
   def handle_info(msg, state) do
-    decode_to_pairs(msg) |> Enum.each(fn {dest, msg} -> send(dest, msg) end)
+    decode_to_pairs(msg)
+    |> Enum.each(fn {dest, msg} ->
+      case dest do
+        dests when is_list(dests) -> Enum.each(dests, &send(&1, msg))
+        _pid_or_name              -> send(dest, msg)
+      end
+    end)
     {:noreply, state}
   end
 

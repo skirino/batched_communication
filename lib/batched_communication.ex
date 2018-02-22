@@ -69,6 +69,18 @@ defmodule BatchedCommunication do
     :ok
   end
 
+  @doc """
+  Sends the same `message` to multiple destination processes.
+  """
+  defun broadcast(dests :: [dest], message :: message) :: :ok do
+    dests_per_node =
+      Enum.map(dests, &node_pair/1)
+      |> Enum.group_by(&elem(&1, 1), &elem(&1, 0))
+    {dests_in_this_node, dests_per_remote_node} = Map.pop(dests_per_node, Node.self(), [])
+    Enum.each(dests_in_this_node, fn d -> send_local(d, message) end)
+    Enum.each(dests_per_remote_node, fn {n, ds} -> Sender.enqueue(n, ds, message) end)
+  end
+
   defp node_pair(p) when is_pid(p) , do: {p, node(p)}
   defp node_pair(a) when is_atom(a), do: {a, Node.self()}
   defp node_pair({_a, _n} = pair)  , do: pair

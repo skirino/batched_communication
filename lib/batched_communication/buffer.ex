@@ -3,14 +3,16 @@ use Croma
 defmodule BatchedCommunication.Buffer do
   alias BatchedCommunication.{Compression, EncodedBatch}
 
-  @type t :: {pos_integer, reference, [{pid | atom, any}]}
+  @type proc :: pid | atom
+  @type dest :: proc | [proc]
+  @type t    :: {pos_integer, reference, [{dest, any}]}
 
-  defun make(node :: node, wait_time :: pos_integer, dest :: pid | atom, msg :: any) :: t do
+  defun make(node :: node, wait_time :: pos_integer, dest :: dest, msg :: any) :: t do
     timer = Process.send_after(self(), {:timeout, node}, wait_time)
     {1, timer, [{dest, msg}]}
   end
 
-  defun add({n1, timer, pairs1} :: t, max :: pos_integer, compression :: Compression.t, dest :: pid | atom, msg :: any) :: {:flush, EncodedBatch.t} | t do
+  defun add({n1, timer, pairs1} :: t, max :: pos_integer, compression :: Compression.t, dest :: dest, msg :: any) :: {:flush, EncodedBatch.t} | t do
     pairs2 = [{dest, msg} | pairs1]
     case n1 + 1 do
       n2 when n2 < max -> {n2, timer, pairs2}
