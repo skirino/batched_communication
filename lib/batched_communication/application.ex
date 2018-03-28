@@ -16,7 +16,6 @@ end
 
 defmodule BatchedCommunication.FixedWorkersSup do
   use Supervisor
-  @behaviour Supervisor
 
   @n_children 32
   def n_children(), do: @n_children
