@@ -6,7 +6,7 @@ defmodule BatchedCommunication.MixProject do
   def project() do
     [
       app:               :batched_communication,
-      version:           "0.1.1",
+      version:           "0.1.2",
       elixir:            "~> 1.6",
       build_embedded:    Mix.env() == :prod,
       start_permanent:   Mix.env() == :prod,
