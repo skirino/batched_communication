@@ -1,7 +1,5 @@
 # BatchedCommunication
 
-**Experimental**
-
 Mostly-transparent batching of remote messages in Erlang/Elixir cluster.
 
 - [API Documentation](http://hexdocs.pm/batched_communication/)
