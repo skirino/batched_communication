@@ -16,23 +16,23 @@ defmodule BatchedCommunication.Buffer do
     pairs2 = [{dest, msg} | pairs1]
     case n1 + 1 do
       n2 when n2 < max -> {n2, timer, pairs2}
-      _gte_max         ->
+      n2               ->
         Process.cancel_timer(timer, [async: true])
-        {:flush, encode_messages_impl(pairs2, compression)}
+        {:flush, encode_messages_impl(n2, pairs2, compression)}
     end
   end
 
-  defun encode_messages({_, _, pairs} :: t, compression :: Compression.t) :: EncodedBatch.t do
-    encode_messages_impl(pairs, compression)
+  defun encode_messages({n, _, pairs} :: t, compression :: Compression.t) :: EncodedBatch.t do
+    encode_messages_impl(n, pairs, compression)
   end
 
-  defp encode_messages_impl(pairs, compression) do
+  defp encode_messages_impl(n, pairs, compression) do
     b = :erlang.term_to_binary(pairs)
     z =
       case compression do
         :raw  -> b
         :gzip -> :zlib.gzip(b)
       end
-    {compression, z}
+    {n, byte_size(b), compression, z}
   end
 end

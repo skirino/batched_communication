@@ -5,5 +5,5 @@ defmodule BatchedCommunication.Compression do
 end
 
 defmodule BatchedCommunication.EncodedBatch do
-  use Croma.SubtypeOfTuple, elem_modules: [BatchedCommunication.Compression, Croma.Binary]
+  use Croma.SubtypeOfTuple, elem_modules: [Croma.PosInteger, Croma.PosInteger, BatchedCommunication.Compression, Croma.Binary]
 end

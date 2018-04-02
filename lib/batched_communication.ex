@@ -141,4 +141,20 @@ defmodule BatchedCommunication do
     end
     Sender.change_property_in_all_senders(:compression, compression)
   end
+
+  @type batch_stats :: {n_messages :: pos_integer, raw_bytes :: pos_integer, sent_bytes :: pos_integer}
+
+  @doc """
+  Collect statistics of batches sent from this node to the specified node during the specified duration (in milliseconds).
+
+  Each element of the returned list is a 3-tuple that consists of
+
+  - number of messages in a batch
+  - byte size of the batch before comprression
+  - byte size of the batch after compression (this is equal to the previous one if `:raw` compression option is used)
+  """
+  defun collect_sending_stats(dest_node :: g[node], duration :: g[pos_integer]) :: [batch_stats] do
+    if dest_node == Node.self(), do: raise "target node must not be the current node"
+    Sender.collect_stats(dest_node, duration)
+  end
 end

@@ -144,4 +144,27 @@ defmodule BatchedCommunicationTest do
     assert BC.change_compression(:gzip) == :ok
     assert_props_in_all_senders(100, 100, :gzip)
   end
+
+  defp client_loop(target) do
+    BC.send(target, :foo)
+    receive do
+      :finish -> :ok
+    after
+      10 -> client_loop(target)
+    end
+  end
+
+  test "should collect sending stats for a specified node" do
+    slave = start_slave()
+    {:ok, pid_remote} = TestServer.start(self()) |> at(slave)
+    assert BC.collect_sending_stats(slave, 500) == []
+
+    {client, ref} = spawn_monitor(fn -> client_loop(pid_remote) end)
+    assert length(BC.collect_sending_stats(slave, 500)) in [4, 5]
+
+    send(client, :finish)
+    receive do
+      {:DOWN, ^ref, :process, ^client, :normal} -> :ok
+    end
+  end
 end

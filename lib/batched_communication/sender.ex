@@ -10,6 +10,7 @@ defmodule BatchedCommunication.Sender do
       max_messages_per_batch: {Croma.PosInteger, [default: 100]},
       compression:            Compression,
       receiver_name:          Croma.Atom,
+      stats:                  Croma.Map, # %{node => [{pos_integer, pos_integer, pos_integer}]}
       map:                    Croma.Map, # %{node => Buffer.t}
     ]
   end
@@ -23,13 +24,17 @@ defmodule BatchedCommunication.Sender do
   @impl true
   def init(:ok) do
     receiver_name = Receiver.name(hash_node(Node.self()))
-    {:ok, %State{compression: :gzip, receiver_name: receiver_name, map: %{}}}
+    {:ok, %State{compression: :gzip, receiver_name: receiver_name, stats: %{}, map: %{}}}
   end
 
   @impl true
   def handle_call(:get_configurations, _from, state) do
     reply = Map.take(state, [:max_wait_time, :max_messages_per_batch, :compression])
     {:reply, reply, state}
+  end
+  def handle_call({:return_stats, dest_node}, _from, %State{stats: stats} = state) do
+    {stats_list, new_stats} = Map.pop(stats, dest_node)
+    {:reply, stats_list, %State{state | stats: new_stats}}
   end
 
   @impl true
@@ -42,6 +47,9 @@ defmodule BatchedCommunication.Sender do
   def handle_cast({:compression, new_compression}, state) do
     {:noreply, %State{state | compression: new_compression}}
   end
+  def handle_cast({:start_recording, dest_node}, %State{stats: stats} = state) do
+    {:noreply, %State{state | stats: Map.put(stats, dest_node, [])}}
+  end
 
   @impl true
   def handle_info({node, dest, msg},
@@ -51,8 +59,8 @@ defmodule BatchedCommunication.Sender do
         nil  -> %State{state | map: Map.put(map1, node, Buffer.make(node, wait_time, dest, msg))}
         buf1 ->
           case Buffer.add(buf1, max, compression, dest, msg) do
-            {:flush, bin} -> send_impl(state, node, bin)
-            buf2          -> %State{state | map: Map.put(map1, node, buf2)}
+            {:flush, encoded} -> send_impl(state, node, encoded)
+            buf2              -> %State{state | map: Map.put(map1, node, buf2)}
           end
       end
     {:noreply, new_state}
@@ -66,13 +74,19 @@ defmodule BatchedCommunication.Sender do
     {:noreply, new_state}
   end
 
-  defp send_impl(%State{receiver_name: receiver_name, map: map} = state, node, binary) do
+  defp send_impl(%State{receiver_name: receiver_name, stats: stats, map: map} = state,
+                 node,
+                 {n_msgs, raw_size, compression, bin}) do
     # We simply drop the message if `:noconnect` is returned (when the destination node is disconnected from `Node.self()`),
     # with the assumption that
-    # - retry will be done by the calling side
-    # - reconnect will be done by another component (such as `RaftFleet`)
-    _ = :erlang.send({receiver_name, node}, binary, [:noconnect])
-    %State{state | map: Map.delete(map, node)}
+    # - resending will be done by the calling side
+    # - reconnect attempts will be done by another component (such as `RaftFleet`)
+    _ = :erlang.send({receiver_name, node}, {compression, bin}, [:noconnect])
+    new_map = Map.delete(map, node)
+    case Map.get(stats, node) do
+      nil        -> %State{state | map: new_map}
+      stats_list -> %State{state | map: new_map, stats: Map.put(stats, node, [{n_msgs, raw_size, byte_size(bin)} | stats_list])}
+    end
   end
 
   defunp hash_node(node :: node) :: non_neg_integer do
@@ -95,5 +109,12 @@ defmodule BatchedCommunication.Sender do
     Enum.each(0 .. (@n_children - 1), fn i ->
       GenServer.cast(name(i), {prop, value})
     end)
+  end
+
+  defun collect_stats(node :: node, duration :: pos_integer) :: [BatchedCommunication.batch_stats] do
+   sender_name = name(hash_node(node))
+    GenServer.cast(sender_name, {:start_recording, node})
+    :timer.sleep(duration)
+    GenServer.call(sender_name, {:return_stats, node}) |> Enum.reverse()
   end
 end

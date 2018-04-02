@@ -26,11 +26,11 @@ defmodule BatchedCommunication.Receiver do
 
   defp decode_to_pairs(msg) do
     case msg do
-      {:raw, b}  -> b
+      {:raw , b} -> b
       {:gzip, b} -> :zlib.gunzip(b)
     end
     |> :erlang.binary_to_term()
-    |> Enum.reverse() # when adding one `Sender` reverses messages; here we have to restore the original order
+    |> Enum.reverse() # `Sender` accumulates messages in the reverse order; here we have to restore the original order
   end
 
   defun name(i :: non_neg_integer) :: atom do
