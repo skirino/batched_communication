@@ -11,7 +11,7 @@ defmodule BatchedCommunication.Sender do
       compression:            Compression,
       receiver_name:          Croma.Atom,
       stats:                  Croma.Map, # %{node => [{pos_integer, pos_integer, pos_integer}]}
-      map:                    Croma.Map, # %{node => Buffer.t}
+      buffers:                Croma.Map, # %{node => Buffer.t}
     ]
   end
 
@@ -24,7 +24,7 @@ defmodule BatchedCommunication.Sender do
   @impl true
   def init(:ok) do
     receiver_name = Receiver.name(hash_node(Node.self()))
-    {:ok, %State{compression: :gzip, receiver_name: receiver_name, stats: %{}, map: %{}}}
+    {:ok, %State{compression: :gzip, receiver_name: receiver_name, stats: %{}, buffers: %{}}}
   end
 
   @impl true
@@ -53,28 +53,28 @@ defmodule BatchedCommunication.Sender do
 
   @impl true
   def handle_info({node, dest, msg},
-                  %State{max_wait_time: wait_time, max_messages_per_batch: max, compression: compression, map: map1} = state) do
+                  %State{max_wait_time: wait_time, max_messages_per_batch: max, compression: compression, buffers: bs1} = state) do
     new_state =
-      case Map.get(map1, node) do
-        nil  -> %State{state | map: Map.put(map1, node, Buffer.make(node, wait_time, dest, msg))}
+      case Map.get(bs1, node) do
+        nil  -> %State{state | buffers: Map.put(bs1, node, Buffer.make(node, wait_time, dest, msg))}
         buf1 ->
           case Buffer.add(buf1, max, compression, dest, msg) do
             {:flush, encoded} -> send_impl(state, node, encoded)
-            buf2              -> %State{state | map: Map.put(map1, node, buf2)}
+            buf2              -> %State{state | buffers: Map.put(bs1, node, buf2)}
           end
       end
     {:noreply, new_state}
   end
-  def handle_info({:timeout, node}, %State{compression: compression, map: map} = state) do
+  def handle_info({:timeout, node}, %State{compression: compression, buffers: bs} = state) do
     new_state =
-      case Map.get(map, node) do
+      case Map.get(bs, node) do
         nil -> state
         buf -> send_impl(state, node, Buffer.encode_messages(buf, compression))
       end
     {:noreply, new_state}
   end
 
-  defp send_impl(%State{receiver_name: receiver_name, stats: stats, map: map} = state,
+  defp send_impl(%State{receiver_name: receiver_name, stats: stats, buffers: bs} = state,
                  node,
                  {n_msgs, raw_size, compression, bin}) do
     # We simply drop the message if `:noconnect` is returned (when the destination node is disconnected from `Node.self()`),
@@ -82,10 +82,10 @@ defmodule BatchedCommunication.Sender do
     # - resending will be done by the calling side
     # - reconnect attempts will be done by another component (such as `RaftFleet`)
     _ = :erlang.send({receiver_name, node}, {compression, bin}, [:noconnect])
-    new_map = Map.delete(map, node)
+    new_bs = Map.delete(bs, node)
     case Map.get(stats, node) do
-      nil        -> %State{state | map: new_map}
-      stats_list -> %State{state | map: new_map, stats: Map.put(stats, node, [{n_msgs, raw_size, byte_size(bin)} | stats_list])}
+      nil        -> %State{state | buffers: new_bs}
+      stats_list -> %State{state | buffers: new_bs, stats: Map.put(stats, node, [{n_msgs, raw_size, byte_size(bin)} | stats_list])}
     end
   end
 
