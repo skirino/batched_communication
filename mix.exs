@@ -6,7 +6,7 @@ defmodule BatchedCommunication.MixProject do
   def project() do
     [
       app:               :batched_communication,
-      version:           "0.1.3",
+      version:           "0.1.4",
       elixir:            "~> 1.6",
       build_embedded:    Mix.env() == :prod,
       start_permanent:   Mix.env() == :prod,
@@ -16,7 +16,7 @@ defmodule BatchedCommunication.MixProject do
       source_url:        @github_url,
       homepage_url:      @github_url,
       test_coverage:     [tool: ExCoveralls],
-      preferred_cli_env: ["coveralls": :test, "coveralls.detail": :test, "coveralls.post": :test, "coveralls.html": :test],
+      preferred_cli_env: [coveralls: :test, "coveralls.detail": :test, "coveralls.post": :test, "coveralls.html": :test],
     ]
   end
 
@@ -30,9 +30,9 @@ defmodule BatchedCommunication.MixProject do
   defp deps() do
     [
       {:croma      , "~> 0.9"},
-      {:dialyze    , "~> 0.2" , [only: :dev]},
-      {:ex_doc     , "~> 0.18", [only: :dev]},
-      {:excoveralls, "~> 0.8" , [only: :test]},
+      {:dialyxir   , "~> 0.5"   , [only: :dev]},
+      {:ex_doc     , "~> 0.18.0", [only: :dev]},
+      {:excoveralls, "~> 0.9"   , [only: :test]},
     ]
   end
 
