@@ -3,6 +3,8 @@ use Croma
 defmodule BatchedCommunication.Receiver do
   use GenServer
 
+  @n_children BatchedCommunication.FixedWorkersSup.n_children()
+
   def start_link(i) do
     GenServer.start_link(__MODULE__, :ok, [name: name(i)])
   end
@@ -10,6 +12,12 @@ defmodule BatchedCommunication.Receiver do
   @impl true
   def init(:ok) do
     {:ok, %{}}
+  end
+
+  @impl true
+  def handle_cast({:priority, new_priority}, state) do
+    Process.flag(:priority, new_priority)
+    {:noreply, state}
   end
 
   @impl true
@@ -35,5 +43,11 @@ defmodule BatchedCommunication.Receiver do
 
   defun name(i :: non_neg_integer) :: atom do
     :"batched_receiver_#{i}"
+  end
+
+  defun change_property_in_all_receivers(prop :: atom, value :: pos_integer | atom) :: :ok do
+    Enum.each(0 .. (@n_children - 1), fn i ->
+      GenServer.cast(name(i), {prop, value})
+    end)
   end
 end

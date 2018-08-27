@@ -47,6 +47,10 @@ defmodule BatchedCommunication.Sender do
   def handle_cast({:compression, new_compression}, state) do
     {:noreply, %State{state | compression: new_compression}}
   end
+  def handle_cast({:priority, new_priority}, state) do
+    Process.flag(:priority, new_priority)
+    {:noreply, state}
+  end
   def handle_cast({:start_recording, dest_node}, %State{stats: stats} = state) do
     {:noreply, %State{state | stats: Map.put(stats, dest_node, [])}}
   end

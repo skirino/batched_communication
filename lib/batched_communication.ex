@@ -4,7 +4,7 @@ defmodule BatchedCommunication do
   @moduledoc File.read!(Path.join([__DIR__, "..", "README.md"])) |> String.replace_prefix("# BatchedCommunication\n\n", "")
 
   import Kernel, except: [send: 2]
-  alias BatchedCommunication.{Compression, Sender}
+  alias BatchedCommunication.{Compression, Sender, Receiver}
 
   @type dest    :: pid | atom | {atom, node}
   @type message :: any
@@ -140,6 +140,24 @@ defmodule BatchedCommunication do
       raise ArgumentError, "invalid value for compression setting: #{inspect(compression)}"
     end
     Sender.change_property_in_all_senders(:compression, compression)
+  end
+
+  @doc """
+  Changes the process scheduling priority of senders and receivers.
+
+  By default processes run with `:normal` priority.
+  You can change the priority of all sender/receiver processes using this function.
+  See also [`:erlang.process_flag/2`](http://erlang.org/doc/man/erlang.html#process_flag_priority).
+  """
+  defun change_process_priority(priority :: :high | :normal | :low) :: :ok do
+    :high   -> change_property_in_all_senders_and_receivers(:priority, :high  )
+    :normal -> change_property_in_all_senders_and_receivers(:priority, :normal)
+    :low    -> change_property_in_all_senders_and_receivers(:priority, :low   )
+  end
+
+  defp change_property_in_all_senders_and_receivers(prop, value) do
+    Sender.change_property_in_all_senders(prop, value)
+    Receiver.change_property_in_all_receivers(prop, value)
   end
 
   @type batch_stats :: {n_messages :: pos_integer, raw_bytes :: pos_integer, sent_bytes :: pos_integer}

@@ -1,7 +1,7 @@
 defmodule BatchedCommunicationTest do
   use ExUnit.Case
   alias BatchedCommunication, as: BC
-  alias BatchedCommunication.{Sender, FixedWorkersSup}
+  alias BatchedCommunication.{Sender, Receiver, FixedWorkersSup}
 
   defmacro at(call, nodename) do
     {{:., _, [mod, fun]}, _, args} = call
@@ -143,6 +143,30 @@ defmodule BatchedCommunicationTest do
     assert_props_in_all_senders(100, 100, :raw)
     assert BC.change_compression(:gzip) == :ok
     assert_props_in_all_senders(100, 100, :gzip)
+  end
+
+  test "priorities of all senders/receivers should be updated" do
+    sender_names   = Enum.map(0 .. (FixedWorkersSup.n_children() - 1), &Sender.name/1)
+    receiver_names = Enum.map(0 .. (FixedWorkersSup.n_children() - 1), &Receiver.name/1)
+    pids = Enum.map(sender_names ++ receiver_names, &Process.whereis/1)
+    Enum.each(pids, fn pid ->
+      assert Process.alive?(pid)
+      assert Process.info(pid, :priority) == {:priority, :normal}
+    end)
+
+    assert BC.change_process_priority(:high) == :ok
+    Enum.each(pids, fn pid ->
+      _ = :sys.get_state(pid) # confirm that the cast message has been processed
+      assert Process.alive?(pid)
+      assert Process.info(pid, :priority) == {:priority, :high}
+    end)
+
+    assert BC.change_process_priority(:normal) == :ok
+    Enum.each(pids, fn pid ->
+      _ = :sys.get_state(pid) # confirm that the cast message has been processed
+      assert Process.alive?(pid)
+      assert Process.info(pid, :priority) == {:priority, :normal}
+    end)
   end
 
   defp client_loop(target) do
