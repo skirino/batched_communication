@@ -116,7 +116,7 @@ defmodule BatchedCommunication.Sender do
   end
 
   defun collect_stats(node :: node, duration :: pos_integer) :: [BatchedCommunication.batch_stats] do
-   sender_name = name(hash_node(node))
+    sender_name = name(hash_node(node))
     GenServer.cast(sender_name, {:start_recording, node})
     :timer.sleep(duration)
     GenServer.call(sender_name, {:return_stats, node}) |> Enum.reverse()
