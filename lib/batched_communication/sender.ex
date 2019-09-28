@@ -77,6 +77,9 @@ defmodule BatchedCommunication.Sender do
       end
     {:noreply, new_state}
   end
+  def handle_info(_unexpected, state) do
+    {:noreply, state}
+  end
 
   defp send_impl(%State{receiver_name: receiver_name, stats: stats, buffers: bs} = state,
                  node,

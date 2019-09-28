@@ -34,9 +34,14 @@ defmodule BatchedCommunication.Receiver do
 
   defp decode_to_pairs(msg) do
     case msg do
-      {:raw , b} -> b
-      {:gzip, b} -> :zlib.gunzip(b)
+      {:raw , b} when is_binary(b) -> b               |> to_terms()
+      {:gzip, b} when is_binary(b) -> :zlib.gunzip(b) |> to_terms()
+      _unexpected                  -> []
     end
+  end
+
+  defp to_terms(b) do
+    b
     |> :erlang.binary_to_term()
     |> Enum.reverse() # `Sender` accumulates messages in the reverse order; here we have to restore the original order
   end

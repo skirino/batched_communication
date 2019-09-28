@@ -6,8 +6,8 @@ defmodule BatchedCommunication.MixProject do
   def project() do
     [
       app:               :batched_communication,
-      version:           "0.1.5",
-      elixir:            "~> 1.6",
+      version:           "0.2.0",
+      elixir:            "~> 1.7",
       build_embedded:    Mix.env() == :prod,
       start_permanent:   Mix.env() == :prod,
       deps:              deps(),
@@ -29,10 +29,10 @@ defmodule BatchedCommunication.MixProject do
 
   defp deps() do
     [
-      {:croma      , "~> 0.9"},
-      {:dialyxir   , "~> 0.5"   , [only: :dev]},
-      {:ex_doc     , "~> 0.18.0", [only: :dev]},
-      {:excoveralls, "~> 0.10"  , [only: :test]},
+      {:croma      , "~> 0.10"},
+      {:dialyxir   , "~> 0.5" , [only: :dev]},
+      {:ex_doc     , "~> 0.21", [only: :dev]},
+      {:excoveralls, "~> 0.11", [only: :test]},
     ]
   end
 
