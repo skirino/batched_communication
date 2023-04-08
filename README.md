@@ -6,7 +6,6 @@ Mostly-transparent batching of remote messages in Erlang/Elixir cluster.
 - [Hex package information](https://hex.pm/packages/batched_communication)
 
 [![Hex.pm](http://img.shields.io/hexpm/v/batched_communication.svg)](https://hex.pm/packages/batched_communication)
-[![Build Status](https://travis-ci.com/skirino/batched_communication.svg)](https://travis-ci.com/github/skirino/batched_communication)
 [![Coverage Status](https://coveralls.io/repos/github/skirino/batched_communication/badge.svg?branch=master)](https://coveralls.io/github/skirino/batched_communication?branch=master)
 
 ## Features & Design
