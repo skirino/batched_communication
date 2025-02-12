@@ -3,6 +3,18 @@ defmodule BatchedCommunicationTest do
   alias BatchedCommunication, as: BC
   alias BatchedCommunication.{Sender, Receiver, FixedWorkersSup}
 
+  erlang_major_version = System.otp_release() |> String.to_integer()
+  if erlang_major_version <= 24 do
+    defp start_link_peer(hostname, name) do
+      :slave.start_link(hostname, name)
+    end
+  else
+    defp start_link_peer(hostname, name) do
+      {:ok, _pid, longname} = :peer.start_link(%{name: name, host: hostname})
+      {:ok, longname}
+    end
+  end
+
   defmacro at(call, nodename) do
     {{:., _, [mod, fun]}, _, args} = call
     quote bind_quoted: [nodename: nodename, mod: mod, fun: fun, args: args] do
@@ -16,7 +28,7 @@ defmodule BatchedCommunicationTest do
 
   defp start_slave() do
     {:ok, hostname} = :inet.gethostname()
-    {:ok, longname} = :slave.start_link(hostname, :slave)
+    {:ok, longname} = start_link_peer(hostname, :slave)
     true            = :code.set_path(:code.get_path()) |> at(longname)
     {:ok, _}        = Application.ensure_all_started(:batched_communication) |> at(longname)
     longname
@@ -104,7 +116,9 @@ defmodule BatchedCommunicationTest do
     assert catch_exit(BC       .call(name_remote, {:sleep, 500}, 200)) == {:noproc, {BC       , :call, [name_remote, {:sleep, 500}, 200]}}
 
     # call to pid in disconnected node
-    :ok = :slave.stop(slave)
+    # note: We should use `:slave.stop/1` or `:peer.stop/1` depending on the current erlang version,
+    # but they require different argument (nodename or pid).
+    :rpc.call(slave, :erlang, :halt, [])
 
     assert catch_exit(GenServer.call(pid_remote , {:sleep, 500}, 200)) == {{:nodedown, slave}, {GenServer, :call, [pid_remote , {:sleep, 500}, 200]}}
     assert catch_exit(GenServer.call(name_remote, {:sleep, 500}, 200)) == {{:nodedown, slave}, {GenServer, :call, [name_remote, {:sleep, 500}, 200]}}
