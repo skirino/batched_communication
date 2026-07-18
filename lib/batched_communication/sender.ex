@@ -38,21 +38,21 @@ defmodule BatchedCommunication.Sender do
   end
 
   @impl true
-  def handle_cast({:max_wait_time, new_wait_time}, state) do
-    {:noreply, %State{state | max_wait_time: new_wait_time}}
+  def handle_cast({:max_wait_time, new_wait_time}, %State{} = state) do
+    {:noreply, %{state | max_wait_time: new_wait_time}}
   end
-  def handle_cast({:max_messages_per_batch, new_max}, state) do
-    {:noreply, %State{state | max_messages_per_batch: new_max}}
+  def handle_cast({:max_messages_per_batch, new_max}, %State{} = state) do
+    {:noreply, %{state | max_messages_per_batch: new_max}}
   end
-  def handle_cast({:compression, new_compression}, state) do
-    {:noreply, %State{state | compression: new_compression}}
+  def handle_cast({:compression, new_compression}, %State{} = state) do
+    {:noreply, %{state | compression: new_compression}}
   end
   def handle_cast({:priority, new_priority}, state) do
     Process.flag(:priority, new_priority)
     {:noreply, state}
   end
   def handle_cast({:start_recording, dest_node}, %State{stats: stats} = state) do
-    {:noreply, %State{state | stats: Map.put(stats, dest_node, [])}}
+    {:noreply, %{state | stats: Map.put(stats, dest_node, [])}}
   end
 
   @impl true
@@ -60,11 +60,11 @@ defmodule BatchedCommunication.Sender do
                   %State{max_wait_time: wait_time, max_messages_per_batch: max, compression: compression, buffers: bs1} = state) do
     new_state =
       case Map.get(bs1, node) do
-        nil  -> %State{state | buffers: Map.put(bs1, node, Buffer.make(node, wait_time, dest, msg))}
+        nil  -> %{state | buffers: Map.put(bs1, node, Buffer.make(node, wait_time, dest, msg))}
         buf1 ->
           case Buffer.add(buf1, max, compression, dest, msg) do
             {:flush, encoded} -> send_impl(state, node, encoded)
-            buf2              -> %State{state | buffers: Map.put(bs1, node, buf2)}
+            buf2              -> %{state | buffers: Map.put(bs1, node, buf2)}
           end
       end
     {:noreply, new_state}
@@ -91,8 +91,8 @@ defmodule BatchedCommunication.Sender do
     _ = :erlang.send({receiver_name, node}, {compression, bin}, [:noconnect])
     new_bs = Map.delete(bs, node)
     case Map.get(stats, node) do
-      nil        -> %State{state | buffers: new_bs}
-      stats_list -> %State{state | buffers: new_bs, stats: Map.put(stats, node, [{n_msgs, raw_size, byte_size(bin)} | stats_list])}
+      nil        -> %{state | buffers: new_bs}
+      stats_list -> %{state | buffers: new_bs, stats: Map.put(stats, node, [{n_msgs, raw_size, byte_size(bin)} | stats_list])}
     end
   end
 
